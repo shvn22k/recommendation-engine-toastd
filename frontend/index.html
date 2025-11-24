@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Search</title>
+    
+    <!-- saira font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Saira:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Saira", sans-serif;
+            font-optical-sizing: auto;
+            font-weight: 400;
+            background: #FFFEF9;
+            color: #2B323F;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* search section */
+        .search-box {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 2px 20px rgba(43, 50, 63, 0.08);
+            margin-bottom: 60px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 600;
+            color: #7C1D2E;
+            margin-bottom: 30px;
+            letter-spacing: -0.5px;
+        }
+
+        .search-input-wrapper {
+            display: flex;
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 18px 24px;
+            font-family: "Saira", sans-serif;
+            font-size: 16px;
+            font-weight: 400;
+            border: 2px solid #E5E5E5;
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.3s;
+            color: #2B323F;
+        }
+
+        input[type="text"]:focus {
+            border-color: #7C1D2E;
+            box-shadow: 0 0 0 4px rgba(124, 29, 46, 0.1);
+        }
+
+        input[type="text"]::placeholder {
+            color: #999;
+        }
+
+        button {
+            padding: 18px 48px;
+            font-family: "Saira", sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            background: #7C1D2E;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            background: #5e1622;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(124, 29, 46, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* loading */
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 18px;
+            color: #666;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #E5E5E5;
+            border-top-color: #7C1D2E;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* results section */
+        .results-header {
+            margin-bottom: 30px;
+            font-size: 18px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        /* product card */
+        .product-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 16px rgba(43, 50, 63, 0.06);
+            transition: all 0.3s;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(43, 50, 63, 0.12);
+        }
+
+        .product-image {
+            width: 100%;
+            height: 280px;
+            object-fit: cover;
+            background: #f5f5f5;
+        }
+
+        .product-info {
+            padding: 24px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2B323F;
+            margin-bottom: 12px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .product-description {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 16px;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            flex: 1;
+        }
+
+        .product-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 16px;
+            border-top: 1px solid #E5E5E5;
+        }
+
+        .product-price {
+            font-size: 22px;
+            font-weight: 700;
+            color: #7C1D2E;
+        }
+
+        .product-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 12px;
+            color: #999;
+        }
+
+        .product-score {
+            background: #f0f0f0;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            color: #7C1D2E;
+            font-size: 13px;
+            margin-top: 12px;
+            display: inline-block;
+        }
+
+        .product-reasoning {
+            font-size: 13px;
+            color: #666;
+            font-style: italic;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f0f0f0;
+            line-height: 1.5;
+        }
+
+        /* empty state */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: #999;
+        }
+
+        .empty-state h2 {
+            font-size: 24px;
+            color: #2B323F;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+        }
+
+        /* error */
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            font-weight: 500;
+        }
+
+        /* responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 20px 16px;
+            }
+
+            .search-box {
+                padding: 24px;
+            }
+
+            h1 {
+                font-size: 24px;
+                margin-bottom: 20px;
+            }
+
+            .search-input-wrapper {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .results-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- search box -->
+        <div class="search-box">
+            <h1>Recommendations from Toastd</h1>
+            <div class="search-input-wrapper">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="what are you looking for?"
+                    onkeypress="handleEnter(event)"
+                />
+                <button onclick="search()" id="searchBtn">Go</button>
+            </div>
+        </div>
+
+        <!-- results -->
+        <div id="resultsContainer"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000';
+
+        // search function
+        async function search() {
+            const query = document.getElementById('searchInput').value.trim();
+            
+            if (!query) {
+                alert('please enter a search query');
+                return;
+            }
+
+            // disable button and show loading
+            const btn = document.getElementById('searchBtn');
+            btn.disabled = true;
+            btn.textContent = 'searching...';
+
+            const container = document.getElementById('resultsContainer');
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>finding the best products for you...</p>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_URL}/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        top_k: 15
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('search failed');
+                }
+
+                const data = await response.json();
+                displayResults(data);
+
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="error">
+                        something went wrong! make sure the server is running on ${API_URL}
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'search';
+            }
+        }
+
+        // display results
+        function displayResults(data) {
+            const container = document.getElementById('resultsContainer');
+
+            if (!data.results || data.results.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h2>no results found</h2>
+                        <p>try a different search query</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const header = `
+                <div class="results-header">
+                    found ${data.total_results} products for "${data.query}" 
+                    (took ${data.processing_time_ms}ms)
+                </div>
+            `;
+
+            const products = data.results.map(item => {
+                const product = item.product;
+                const imageUrl = product.image || 'https://via.placeholder.com/300x300?text=No+Image';
+                const price = product.price ? `₹${product.price.toFixed(0)}` : 'N/A';
+                const productUrl = product.url || '';
+                
+                return `
+                    <div class="product-card" onclick="openProduct('${productUrl}')">
+                        <img src="${imageUrl}" alt="${product.name}" class="product-image" onerror="this.src='https://via.placeholder.com/300x300?text=Image+Not+Found'">
+                        <div class="product-info">
+                            <div class="product-name">${product.name}</div>
+                            <div class="product-description">${product.description || product.headline || 'no description available'}</div>
+                            <div class="product-score">match: ${(item.relevance_score * 100).toFixed(0)}%</div>
+                            <div class="product-reasoning">${item.reasoning}</div>
+                            <div class="product-footer">
+                                <div class="product-price">${price}</div>
+                                <div class="product-meta">
+                                    <span>${product.views} views</span>
+                                    <span>•</span>
+                                    <span>${product.votes} votes</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = header + '<div class="results-grid">' + products + '</div>';
+        }
+
+        // open product in new tab
+        function openProduct(url) {
+            if (url && url !== 'N/A' && url !== 'null' && url !== 'undefined') {
+                window.open(url, '_blank');
+            } else {
+                console.log('no valid url for this product');
+            }
+        }
+
+        // handle enter key
+        function handleEnter(event) {
+            if (event.key === 'Enter') {
+                search();
+            }
+        }
+
+        // focus input on load
+        window.onload = function() {
+            document.getElementById('searchInput').focus();
+        };
+    </script>
+</body>
+</html>
+
