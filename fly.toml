@@ -1,4 +1,4 @@
-# fly.toml app configuration file generated for recommendation-engine-toastd on 2026-03-21T13:10:55Z
+# fly.toml app configuration file generated for recommendation-engine-toastd on 2026-03-21T14:29:48Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
@@ -16,20 +16,8 @@ primary_region = 'bom'
   min_machines_running = 0
   processes = ['app']
 
-  [http_service.concurrency]
-    type = "requests"
-    soft_limit = 200
-    hard_limit = 250
-
-[[http_service.checks]]
-  grace_period = "180s"
-  interval = "30s"
-  method = "GET"
-  timeout = "15s"
-  path = "/"
-
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 2048
+  memory_mb = 1024
