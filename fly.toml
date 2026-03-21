@@ -1,3 +1,8 @@
+# fly.toml app configuration file generated for recommendation-engine-toastd on 2026-03-21T14:29:48Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
 app = 'recommendation-engine-toastd'
 primary_region = 'bom'
 
