@@ -1,7 +1,7 @@
 # fly.toml - Fly.io configuration
 
 app = "toastd-api"
-primary_region = "sjc"
+primary_region = "bom"
 
 [build]
   dockerfile = "Dockerfile"
