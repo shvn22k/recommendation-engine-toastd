@@ -6,11 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import os
+from dotenv import load_dotenv
 
 from search import SemanticSearchSystem
 
+load_dotenv()
+
 # config
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your gemini api key")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 PRODUCT_DATA_PATH = "product_data.pkl"
 
 # setup fastapi
@@ -36,6 +39,7 @@ search_system = None
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1)
     top_k: int = Field(10, ge=1, le=50)
+    fast_mode: bool = Field(False, description="Skip Gemini calls for faster results")
 
 
 class ProductResponse(BaseModel):
@@ -79,6 +83,9 @@ async def startup_event():
     print("\n" + "="*60)
     print("starting api server...")
     print("="*60)
+    
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY not found in environment. Check your .env file.")
     
     try:
         search_system = SemanticSearchSystem(
@@ -140,7 +147,8 @@ async def search_products(request: SearchRequest):
         results = search_system.search(
             user_query=request.query,
             top_k=request.top_k,
-            verbose=False
+            verbose=False,
+            fast_mode=request.fast_mode
         )
         
         processing_time = (time.time() - start_time) * 1000

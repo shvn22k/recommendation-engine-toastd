@@ -2,6 +2,7 @@
 # uses cosine similarity for initial search, then gemini reranks
 
 import json
+import os
 import numpy as np
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
@@ -9,6 +10,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 from typing import List, Dict, Tuple
 import pickle
 from datetime import datetime
+from dotenv import load_dotenv
+
+from cache import RedisCache
+
+load_dotenv()
 
 
 class SemanticSearchSystem:
@@ -32,6 +38,9 @@ class SemanticSearchSystem:
         
         print(f"loaded {len(self.products)} products")
         
+        # initialize cache
+        self.cache = RedisCache()
+        
         self._calculate_stats()
     
     def _calculate_stats(self):
@@ -46,6 +55,14 @@ class SemanticSearchSystem:
     def expand_query(self, user_query):
         # use gemini to understand what user really wants
         # expands the query into categories, attributes, etc
+        
+        # check cache first
+        cache_key = f"expand:{user_query}"
+        cached = self.cache.get(cache_key)
+        if cached is not None:
+            print("CACHE HIT: expand_query")
+            return cached
+        print("CACHE MISS: expand_query")
         
         prompt = f"""You are an e-commerce search expert. Your job is to understand what users are REALLY looking for when they search.
 
@@ -103,6 +120,10 @@ Return ONLY valid JSON, no other text.
             text = text.replace('```json', '').replace('```', '').strip()
             
             expanded = json.loads(text)
+            
+            # cache successful result for 1 day
+            self.cache.set(cache_key, expanded, ttl=86400)
+            
             return expanded
             
         except Exception as e:
@@ -121,8 +142,18 @@ Return ONLY valid JSON, no other text.
         # search using cosine similarity
         # returns top k matching products
         
-        # embed the query
-        query_embedding = self.encoder.encode([query_text], convert_to_numpy=True)
+        # check cache for embedding
+        cache_key = f"embed:{query_text}"
+        cached_embedding = self.cache.get(cache_key)
+        
+        if cached_embedding is not None:
+            print("CACHE HIT: embedding")
+            query_embedding = np.array(cached_embedding)
+        else:
+            print("CACHE MISS: embedding")
+            query_embedding = self.encoder.encode([query_text], convert_to_numpy=True)
+            # cache embedding for 1 day
+            self.cache.set(cache_key, query_embedding.tolist(), ttl=86400)
         
         # calculate similarities with all products
         similarities = cosine_similarity(query_embedding, self.product_embeddings)[0]
@@ -241,30 +272,50 @@ Sort by relevance (best first). Return valid JSON only, no other text."""
         
         return reranked
     
-    def search(self, user_query, top_k=10, verbose=True):
+    def search(self, user_query, top_k=10, verbose=True, fast_mode=False):
         # main search function
         # does everything: expand, search, rerank, score
+        # fast_mode=True skips Gemini calls for faster results (lower quality)
+        
+        # check cache for final results first
+        mode_suffix = ":fast" if fast_mode else ""
+        final_cache_key = f"final:{user_query}:{top_k}{mode_suffix}"
+        cached_results = self.cache.get(final_cache_key)
+        if cached_results is not None:
+            print("CACHE HIT: final_results")
+            return cached_results
+        print("CACHE MISS: final_results")
         
         if verbose:
             print(f"\n{'='*60}")
             print(f"searching: '{user_query}'")
             print(f"{'='*60}")
         
-        # expand query with gemini
-        if verbose:
-            print("\n1. expanding query...")
-        
-        expanded = self.expand_query(user_query)
-        
-        if verbose:
-            print(f"   intent: {expanded['search_intent']}")
-            print(f"   categories: {', '.join(expanded['product_categories'][:5])}")
+        # expand query with gemini (skip in fast mode)
+        if fast_mode:
+            if verbose:
+                print("\n1. fast mode - skipping query expansion")
+            expanded = {
+                "search_intent": f"Find products related to: {user_query}",
+                "product_categories": [user_query],
+                "key_attributes": [],
+                "context_clues": "General search",
+                "semantic_expansion": user_query
+            }
+            search_text = user_query
+        else:
+            if verbose:
+                print("\n1. expanding query...")
+            expanded = self.expand_query(user_query)
+            if verbose:
+                print(f"   intent: {expanded['search_intent']}")
+                print(f"   categories: {', '.join(expanded['product_categories'][:5])}")
+            search_text = expanded['semantic_expansion']
         
         # semantic search
         if verbose:
             print("\n2. searching...")
         
-        search_text = expanded['semantic_expansion']
         candidate_indices = self.search_products(search_text, top_k=30)
         
         candidates = [
@@ -278,11 +329,23 @@ Sort by relevance (best first). Return valid JSON only, no other text."""
         if verbose:
             print(f"   found {len(candidates)} candidates")
         
-        # rerank with gemini
-        if verbose:
-            print("\n3. reranking...")
-        
-        reranked = self.rerank_with_gemini(user_query, expanded, candidates, top_k=top_k)
+        # rerank with gemini (skip in fast mode)
+        if fast_mode:
+            if verbose:
+                print("\n3. fast mode - skipping reranking")
+            reranked = [
+                {
+                    'index': i,
+                    'product': candidates[i]['product'],
+                    'relevance_score': candidates[i]['similarity'],
+                    'reasoning': 'Matched by semantic similarity'
+                }
+                for i in range(min(top_k, len(candidates)))
+            ]
+        else:
+            if verbose:
+                print("\n3. reranking...")
+            reranked = self.rerank_with_gemini(user_query, expanded, candidates, top_k=top_k)
         
         # final scoring
         if verbose:
@@ -293,6 +356,9 @@ Sort by relevance (best first). Return valid JSON only, no other text."""
         if verbose:
             print(f"\ndone! returning {len(final_results)} results")
             print(f"{'='*60}\n")
+        
+        # cache final results for 1 hour
+        self.cache.set(final_cache_key, final_results, ttl=3600)
         
         return final_results
 
@@ -313,8 +379,10 @@ def display_results(results):
 
 if __name__ == "__main__":
     
-    # setup
-    GEMINI_API_KEY = "your gemini api key"
+    # setup - load from .env
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY not found in environment. Check your .env file.")
     
     search_system = SemanticSearchSystem(
         gemini_api_key=GEMINI_API_KEY,

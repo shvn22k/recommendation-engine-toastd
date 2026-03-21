@@ -106,6 +106,90 @@
             transform: none;
         }
 
+        /* mode toggle */
+        .search-options {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #E5E5E5;
+        }
+
+        .toggle-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+        }
+
+        .toggle {
+            position: relative;
+            width: 52px;
+            height: 28px;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #E5E5E5;
+            transition: 0.3s;
+            border-radius: 28px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .toggle input:checked + .toggle-slider {
+            background-color: #7C1D2E;
+        }
+
+        .toggle input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .mode-indicator {
+            font-size: 13px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .mode-indicator.fast {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .mode-indicator.normal {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
         /* loading */
         .loading {
             text-align: center;
@@ -312,6 +396,16 @@
                 />
                 <button onclick="search()" id="searchBtn">Go</button>
             </div>
+            <div class="search-options">
+                <div class="toggle-wrapper">
+                    <span class="toggle-label">Fast Mode</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="fastModeToggle" onchange="updateModeIndicator()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <span class="mode-indicator normal" id="modeIndicator">Normal - AI Enhanced</span>
+            </div>
         </div>
 
         <!-- results -->
@@ -319,11 +413,31 @@
     </div>
 
     <script>
-        const API_URL = 'http://localhost:8000';
+        // API URL - change this to your Fly.io backend URL for production
+        // Local: 'http://localhost:8000'
+        // Production: 'https://your-app.fly.dev'
+        const API_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:8000' 
+            : 'https://toastd-api.fly.dev';  // UPDATE THIS after Fly.io deployment
+
+        // update mode indicator
+        function updateModeIndicator() {
+            const fastMode = document.getElementById('fastModeToggle').checked;
+            const indicator = document.getElementById('modeIndicator');
+            
+            if (fastMode) {
+                indicator.textContent = 'Fast - Instant Results';
+                indicator.className = 'mode-indicator fast';
+            } else {
+                indicator.textContent = 'Normal - AI Enhanced';
+                indicator.className = 'mode-indicator normal';
+            }
+        }
 
         // search function
         async function search() {
             const query = document.getElementById('searchInput').value.trim();
+            const fastMode = document.getElementById('fastModeToggle').checked;
             
             if (!query) {
                 alert('please enter a search query');
@@ -336,10 +450,11 @@
             btn.textContent = 'searching...';
 
             const container = document.getElementById('resultsContainer');
+            const loadingText = fastMode ? 'searching...' : 'AI is finding the best products for you...';
             container.innerHTML = `
                 <div class="loading">
                     <div class="loading-spinner"></div>
-                    <p>finding the best products for you...</p>
+                    <p>${loadingText}</p>
                 </div>
             `;
 
@@ -351,7 +466,8 @@
                     },
                     body: JSON.stringify({
                         query: query,
-                        top_k: 15
+                        top_k: 15,
+                        fast_mode: fastMode
                     })
                 });
 
@@ -388,10 +504,12 @@
                 return;
             }
 
+            const fastMode = document.getElementById('fastModeToggle').checked;
+            const modeText = fastMode ? 'Fast Mode' : 'AI Enhanced';
             const header = `
                 <div class="results-header">
                     found ${data.total_results} products for "${data.query}" 
-                    (took ${data.processing_time_ms}ms)
+                    (${modeText} • ${data.processing_time_ms}ms)
                 </div>
             `;
 
