@@ -4,8 +4,9 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Any
 import os
+import traceback
 from dotenv import load_dotenv
 
 from search import SemanticSearchSystem
@@ -33,6 +34,30 @@ app.add_middleware(
 )
 
 search_system = None
+
+
+def _to_float(val: Any, default: float = 0.0) -> float:
+    try:
+        if val is None:
+            return default
+        return float(val)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_int(val: Any, default: int = 0) -> int:
+    try:
+        if val is None:
+            return default
+        return int(val)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_str(val: Any, default: str = "") -> str:
+    if val is None:
+        return default
+    return str(val)
 
 
 # request/response models
@@ -73,6 +98,29 @@ class HealthResponse(BaseModel):
     status: str
     products_loaded: int
     model_ready: bool
+
+
+def _optional_str(val: Any) -> Optional[str]:
+    if val is None:
+        return None
+    s = _to_str(val, "")
+    return s if s else None
+
+
+def _product_to_response(product: dict) -> ProductResponse:
+    # pickle often has numpy scalars; coerce for Pydantic/JSON
+    return ProductResponse(
+        id=_to_str(product.get("id"), ""),
+        name=_to_str(product.get("name"), ""),
+        description=_to_str(product.get("short_description"), ""),
+        headline=_optional_str(product.get("headline_description")),
+        price=_to_float(product.get("final_price", product.get("price")), 0.0),
+        image=_optional_str(product.get("main_image")),
+        url=_optional_str(product.get("product_url")),
+        tags=_optional_str(product.get("tags")),
+        views=_to_int(product.get("view_count"), 0),
+        votes=_to_int(product.get("vote_count"), 0),
+    )
 
 
 # startup/shutdown
@@ -160,21 +208,10 @@ async def search_products(request: SearchRequest):
             
             formatted_results.append(
                 SearchResultItem(
-                    product=ProductResponse(
-                        id=product.get('id', ''),
-                        name=product.get('name', ''),
-                        description=product.get('short_description', ''),
-                        headline=product.get('headline_description'),
-                        price=product.get('final_price', product.get('price', 0)),
-                        image=product.get('main_image'),
-                        url=product.get('product_url'),
-                        tags=product.get('tags'),
-                        views=product.get('view_count', 0),
-                        votes=product.get('vote_count', 0)
-                    ),
-                    final_score=result['final_score'],
-                    relevance_score=result['relevance_score'],
-                    reasoning=result['reasoning']
+                    product=_product_to_response(product),
+                    final_score=_to_float(result.get("final_score"), 0.0),
+                    relevance_score=_to_float(result.get("relevance_score"), 0.0),
+                    reasoning=_to_str(result.get("reasoning"), ""),
                 )
             )
         
@@ -186,6 +223,7 @@ async def search_products(request: SearchRequest):
         )
     
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"search failed: {str(e)}")
 
 
@@ -205,18 +243,7 @@ async def get_product(product_id: str):
     if product is None:
         raise HTTPException(status_code=404, detail="not found")
     
-    return ProductResponse(
-        id=product.get('id', ''),
-        name=product.get('name', ''),
-        description=product.get('short_description', ''),
-        headline=product.get('headline_description'),
-        price=product.get('final_price', product.get('price', 0)),
-        image=product.get('main_image'),
-        url=product.get('product_url'),
-        tags=product.get('tags'),
-        views=product.get('view_count', 0),
-        votes=product.get('vote_count', 0)
-    )
+    return _product_to_response(product)
 
 
 # run the server
