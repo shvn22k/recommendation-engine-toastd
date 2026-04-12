@@ -1,7 +1,8 @@
 fastapi==0.109.0
 uvicorn==0.27.0
 sentence-transformers==2.6.1
-torch==2.2.0
+# torch 2.2 + numpy 2.x triggers "RuntimeError: Numpy is not available" in .numpy(); use 2.4+ for numpy 2.
+torch==2.5.1
 transformers==4.38.0
 google-generativeai==0.3.2
 scikit-learn==1.5.2
