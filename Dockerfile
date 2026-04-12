@@ -20,8 +20,8 @@ COPY src/ ./src/
 # Set working directory to src
 WORKDIR /app/src
 
-# Expose port
+# Render (and some hosts) set PORT at runtime; Fly/local often use 8080.
 EXPOSE 8080
 
-# Run the server
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8080"]
+# Shell form so $PORT is read when the container starts (required for Render Docker deploys).
+CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080}"]
