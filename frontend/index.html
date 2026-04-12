@@ -413,12 +413,17 @@
     </div>
 
     <script>
-        // API URL - change this to your Fly.io backend URL for production
-        // Local: 'http://localhost:8000'
-        // Production: 'https://recommendation-engine-toastd.fly.dev'
-        const API_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost:8000' 
-            : 'https://recommendation-engine-toastd.fly.dev';
+        // API base URL — production is Render; run backend locally on port 8000 for dev.
+        const API_URL = (() => {
+            const h = window.location.hostname;
+            const isLocal =
+                h === 'localhost' ||
+                h === '127.0.0.1' ||
+                h === '';
+            return isLocal
+                ? 'http://localhost:8000'
+                : 'https://recommendation-engine-toastd.onrender.com';
+        })();
 
         // update mode indicator
         function updateModeIndicator() {
